@@ -40,5 +40,7 @@ public:
 private:
     std::vector<detail::CommandDescription> commands_;
 };
+
+void FillCatalogue(TransportCatalogue& catalogue, std::istream& input);
 }// namespace input_reader
 }// namespace ctalogue

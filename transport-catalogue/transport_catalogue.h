@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <deque>
+#include <vector>
 #include <set>
 #include <unordered_map>
 
@@ -17,7 +18,7 @@ struct Stop {
 
 struct Bus {
     std::string name;
-    std::deque<const Stop*> stops;
+    std::vector<const Stop*> stops;
 };
 
 struct BusStats {

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <iostream>
 
 namespace catalogue {
 namespace input_reader {
@@ -125,6 +126,7 @@ void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) 
     for(auto& command : bus_commands) {
         Bus bus{command.id, {}};
         auto route = ParseRoute(command.description);
+        bus.stops.reserve(route.size());
         std::for_each(route.begin(), route.end(), [&](std::string_view stop) {
             bus.stops.push_back(catalogue.GetStop(stop));
         });
@@ -132,5 +134,22 @@ void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) 
     }
 }
 
+void FillCatalogue(TransportCatalogue& catalogue, std::istream& input) {
+    int request_count ;
+    input >> request_count;
+    {
+        std::string line;
+        getline(input, line);
+    }
+
+    input_reader::InputReader reader;
+
+    for(int i = 0; i < request_count; ++i) {
+        std::string line;
+        getline(input, line);
+        reader.ParseLine(line);
+    }
+    reader.ApplyCommands(catalogue);
+}
 }// namespace input_reader
 }// namespace catalogue

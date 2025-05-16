@@ -3,7 +3,7 @@
 
 namespace catalogue {
 
-using std::string_view, std::ostream, std::endl;
+using std::string, std::string_view, std::istream, std::ostream, std::endl;
 namespace stat_reader {
 namespace detail {
 
@@ -26,10 +26,10 @@ void PrintBusInfo(const TransportCatalogue& transport_catalogue, string_view nam
         return;
     }
     
-    auto [stops_num, unique_stops, length] = transport_catalogue.GetRouteInfo(bus);
+    auto bus_stats = transport_catalogue.GetRouteInfo(bus);
 
-    output << stops_num << " stops on route, " << unique_stops << " unique stops, "
-           << length << " route length" << endl;
+    output << bus_stats.stops_num << " stops on route, " << bus_stats.unique_stops << " unique stops, "
+           << bus_stats.length << " route length" << endl;
 }
 
 void PrintStopInfo(const TransportCatalogue& transport_catalogue, string_view name, ostream& output) {
@@ -71,6 +71,21 @@ void ParseAndPrintStat(const TransportCatalogue& transport_catalogue, string_vie
     if(request_type == "Stop") {
         PrintStopInfo(transport_catalogue, name, output);
         return;
+    }
+}
+
+void GetResult(const TransportCatalogue& transport_catalogue, istream& input, ostream& output) {
+    int request_count;
+    input >> request_count;
+    {
+        string line;
+        getline(input, line);
+    }
+
+    for (int i = 0; i < request_count; ++i) {
+        string line;
+        getline(input, line);
+        stat_reader::ParseAndPrintStat(transport_catalogue, line, output);
     }
 }
 
