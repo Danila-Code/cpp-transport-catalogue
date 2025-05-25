@@ -109,8 +109,10 @@ void InputReader::ParseLine(std::string_view line) {
     }
 }
 
-void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) const {
-    std::vector<CommandDescription> bus_commands;
+void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) {
+    std::partition(commands_.begin(), commands_.end(), [](CommandDescription command) {
+        return command.command == "Stop";
+    });
 
     for(auto& command : commands_) {
         if(command.command == "Stop") {
@@ -119,18 +121,14 @@ void InputReader::ApplyCommands([[maybe_unused]] TransportCatalogue& catalogue) 
         }
 
         if(command.command == "Bus") {
-            bus_commands.push_back(std::move(command));
+            Bus bus{command.id, {}};
+            auto route = ParseRoute(command.description);
+            bus.stops.reserve(route.size());
+            std::for_each(route.begin(), route.end(), [&](std::string_view stop) {
+                bus.stops.push_back(catalogue.GetStop(stop));
+            });
+            catalogue.AddBus(bus);
         }
-    }
-
-    for(auto& command : bus_commands) {
-        Bus bus{command.id, {}};
-        auto route = ParseRoute(command.description);
-        bus.stops.reserve(route.size());
-        std::for_each(route.begin(), route.end(), [&](std::string_view stop) {
-            bus.stops.push_back(catalogue.GetStop(stop));
-        });
-        catalogue.AddBus(bus);
     }
 }
 
