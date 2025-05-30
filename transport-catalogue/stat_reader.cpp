@@ -29,7 +29,7 @@ void PrintBusInfo(const TransportCatalogue& transport_catalogue, string_view nam
     auto bus_stats = transport_catalogue.GetRouteInfo(bus);
 
     output << bus_stats.stops_num << " stops on route, " << bus_stats.unique_stops << " unique stops, "
-           << bus_stats.length << " route length" << endl;
+           << bus_stats.length_f << " route length, " << bus_stats.curvature << " curvature" << endl;
 }
 
 void PrintStopInfo(const TransportCatalogue& transport_catalogue, string_view name, ostream& output) {

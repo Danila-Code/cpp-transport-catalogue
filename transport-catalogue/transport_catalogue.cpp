@@ -13,6 +13,11 @@ void TransportCatalogue::AddStop(const Stop& stop) {
     stops_info_.insert({&(*new_stop), {}});
 }
 
+// Добавление расстояния между остановками
+void TransportCatalogue::AddDistanceBetweenStops(std::string_view from, std::string_view to, size_t distance) {
+    stops_distances_[{find_stops_[from], find_stops_[to]}] = distance;
+}
+
 // добавление маршрута в базу
 void TransportCatalogue::AddBus(const Bus& bus) {
     auto new_bus = buses_.insert(buses_.end(), std::move(bus));
@@ -50,9 +55,8 @@ size_t TransportCatalogue::GetUniqueStops(const Bus& bus) const {
     return unique_stops.size();
 }
 
-// возвращает дистанцию всего маршрута
-double TransportCatalogue::GetRouteLength(const Bus& bus) const {
-//inline double ComputeDistance(Coordinates from, Coordinates to)
+// возвращает географическую длину всего маршрута 
+double TransportCatalogue::GetRouteLengthG(const Bus& bus) const {
     auto calc_sum = [](double lhs, double rhs) {
         return lhs + rhs;
     };
@@ -62,9 +66,25 @@ double TransportCatalogue::GetRouteLength(const Bus& bus) const {
     return std::transform_reduce(bus.stops.begin(), bus.stops.end() - 1, bus.stops.begin() + 1, 0.0, 
                      calc_sum, calc_distance);
 }
+
+// возвращает фактическую дину всего маршрута
+size_t TransportCatalogue::GetRouteLengthF(const Bus& bus) const {
+    size_t distance = 0;
+    for(size_t i = 1; i < bus.stops.size(); ++i) {
+        if(auto iter = stops_distances_.find(std::pair{bus.stops[i - 1], bus.stops[i]}); iter != stops_distances_.end()) {
+            distance += iter->second;
+        } else if(auto iter = stops_distances_.find(std::pair{bus.stops[i], bus.stops[i - 1]}); iter != stops_distances_.end()) {
+            distance += iter->second;
+        }
+    }
+    return distance;
+}
+
 // расчитывает и возвращает статистику маршрута
 BusStats TransportCatalogue::CalcBusStatistics(const Bus& bus) const {
-    return BusStats{bus.stops.size(), GetUniqueStops(bus), GetRouteLength(bus)};
+    size_t length_f = GetRouteLengthF(bus);
+    double curvature = length_f / GetRouteLengthG(bus);
+    return BusStats{bus.stops.size(), GetUniqueStops(bus), length_f, curvature};
 }
 
 // получение информации о маршруте Bus X: R stops on route, U unique stops, L route length
