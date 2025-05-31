@@ -82,7 +82,7 @@ std::pair<std::string_view, size_t> ParseDistance(std::string_view str) {
 /**
  * Парсит описание остановки и возвращает вектора расстояний до остановок
  */
-std::vector<std::pair<std::string_view, size_t>> ParseStopDescription(std::string_view str) {
+std::unordered_map<std::string_view, size_t> ParseStopDescription(std::string_view str) {
     size_t comma_pos = str.find(',');
     if(comma_pos == str.npos) {
         return {};
@@ -97,10 +97,10 @@ std::vector<std::pair<std::string_view, size_t>> ParseStopDescription(std::strin
         return {};
     }
 
-    std::vector<std::pair<std::string_view, size_t>> results;
+    std::unordered_map<std::string_view, size_t> results;
     results.reserve(stop_distances.size());
     for(auto& distance : stop_distances) {
-        results.push_back(ParseDistance(distance));
+        results.insert(ParseDistance(distance));
     }
     return results;
 }
