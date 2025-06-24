@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iterator>
 #include <iostream>
+#include <cmath>
 
 namespace catalogue {
 namespace input_reader {
@@ -205,4 +206,4 @@ void FillCatalogue(TransportCatalogue& catalogue, std::istream& input) {
     reader.ApplyCommands(catalogue);
 }
 }// namespace input_reader
-}// namespace cataloguegf
+}// namespace catalogue

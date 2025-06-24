@@ -98,4 +98,10 @@ const std::set<std::string_view>& TransportCatalogue::GetStopInfo(const Stop* st
     assert(stop);
     return stops_info_.at(stop);
 }
+
+// получение всех маршрутов
+const std::unordered_map<std::string_view, const Bus*>& TransportCatalogue::GetAllRoutes() const {
+    return find_buses_;
+}
+
 }// namespace catalogue

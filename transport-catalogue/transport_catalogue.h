@@ -1,48 +1,19 @@
 #pragma once
 
-#include <string>
 #include <string_view>
 #include <deque>
-#include <vector>
 #include <set>
 #include <unordered_map>
+#include <map>
 
-#include "geo.h"
+#include "domain.h"
 
 namespace catalogue {
-namespace detail {
-struct Stop {
-    std::string name;
-    Coordinates coord;
-};
 
-struct Bus {
-    std::string name;
-    std::vector<const Stop*> stops;
-};
-
-struct BusStats {
-    size_t stops_num;
-    size_t unique_stops;
-    size_t length_f;
-    double curvature;
-};
-
-class StopHasher {
-public:
-    size_t operator()(std::pair<const Stop*, const Stop*> value) const noexcept{
-        return (hasher(value.first) << 32) + hasher(value.second);
-    }
-private:
-    std::hash<const void*> hasher;
-};
-
-}// namespace detail
-
-using namespace detail;
+using namespace domain;
 
 class TransportCatalogue {
-    public:
+public:
     // добавление остановки в базу
     void AddStop(const Stop& stop);
 
@@ -62,8 +33,11 @@ class TransportCatalogue {
 
     // получение информации об остановке
     const std::set<std::string_view>& GetStopInfo(const Stop* stop) const;
+    
+    // получение всех маршрутов
+    const std::unordered_map<std::string_view, const Bus*>& GetAllRoutes() const;
 
-    private:
+private:
     // расчитывает и возвращает статистику маршрута
     BusStats CalcBusStatistics(const Bus& bus) const;
 
