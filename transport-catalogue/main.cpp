@@ -1,7 +1,5 @@
 #include <iostream>
 
-#include <fstream>
-
 #include "json_reader.h"
 #include "request_handler.h"
 
@@ -13,11 +11,11 @@ int main() {
     TransportCatalogue catalogue;
     
     json_reader::JsonReader reader(cin);
-    reader.ApplyBaseRequests(catalogue);
+    reader.FillTransportCatalogue(catalogue);
 
     MapRenderer renderer(reader.GetRenderSettings());
 
     RequestHandler handler(catalogue, renderer);
     
-    reader.ApplyStatRequests(catalogue, handler, cout);
+    reader.ApplyStatRequests(handler, cout);
 }

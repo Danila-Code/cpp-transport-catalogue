@@ -189,10 +189,10 @@ void Text::RenderObject(const RenderContext& context) const {
     RenderAttrs(out);
 
     using detail::RenderAttr;
-    RenderAttr(out, " x=\""sv, pos_.x);
-    RenderAttr(out, " y=\""sv, pos_.y);
-    RenderAttr(out, " dx=\""sv, offset_.x);
-    RenderAttr(out, " dy=\""sv, offset_.y);
+    RenderAttr(out, " x"sv, pos_.x);
+    RenderAttr(out, " y"sv, pos_.y);
+    RenderAttr(out, " dx"sv, offset_.x);
+    RenderAttr(out, " dy"sv, offset_.y);
     RenderAttr(out, " font-size"sv, font_size_);
     if(!font_family_.empty()) {
         RenderAttr(out, " font-family"sv, font_family_);

@@ -1,4 +1,5 @@
 #include "json_reader.h"
+#include "json_builder.h"
 
 #include <stdexcept>
 #include <sstream>
@@ -37,40 +38,43 @@ std::vector<svg::Color> ArrayToColorVector(const json::Array& array) {
 }
 
 //Возвращает словарь, заполненный информацией о маршруте
-json::Dict GetBusInfo(const TransportCatalogue& transport_catalogue, const json::Dict& bus_request) {
+json::Node GetBusInfo(const TransportCatalogue& transport_catalogue, const json::Dict& bus_request) {
     auto bus = transport_catalogue.GetBus(bus_request.at("name"s).AsString());
 
     if(!bus) {
-        return {{"request_id"s, bus_request.at("id"s).AsInt()}, 
-                {"error_message"s, "not found"s}};
+        return json::Builder{}
+            .StartDict()
+                .Key("request_id"s).Value(bus_request.at("id"s).AsInt())
+                .Key("error_message"s).Value("not found"s)
+            .EndDict()
+            .Build();
     }
 
     auto bus_stats = transport_catalogue.GetRouteInfo(bus);
-    
-    int stop_count;
-    
-    try {
-        stop_count = static_cast<int>(bus_stats.unique_stops);
-    } catch(std::overflow_error& e) {
-        throw std::overflow_error("Overflow: there are too many stops count, it is not possible to output in json!"s);
-    }
 
-    return {{"curvature"s, bus_stats.curvature},
-            {"request_id"s, bus_request.at("id"s).AsInt()},
-            {"route_length"s, static_cast<int>(bus_stats.length_f)},
-            {"stop_count"s, static_cast<int>(bus_stats.stops_num)},
-            {"unique_stop_count"s, stop_count}};
+    return json::Builder{}
+        .StartDict()
+            .Key("curvature"s).Value(bus_stats.curvature)
+            .Key("request_id"s).Value(bus_request.at("id"s).AsInt())
+            .Key("route_length"s).Value(static_cast<int>(bus_stats.length_f))
+            .Key("stop_count"s).Value(static_cast<int>(bus_stats.stops_num))
+            .Key("unique_stop_count"s).Value(static_cast<int>(bus_stats.unique_stops))
+        .EndDict()
+        .Build();
         // Возможно переполнение при преобразовании из size_t в int
 }
 
 //Возвращает словарь, заполненный информацией об остановке
-json::Dict GetStopInfo(const TransportCatalogue& transport_catalogue, const json::Dict& stop_request) {
-    json::Dict stop_info{{"request_id"s, stop_request.at("id"s).AsInt()}};
+json::Node GetStopInfo(const TransportCatalogue& transport_catalogue, const json::Dict& stop_request) {
     auto stop = transport_catalogue.GetStop(stop_request.at("name"s).AsString());
 
     if(!stop) {
-        stop_info.insert({"error_message"s, "not found"s});
-        return stop_info;
+        return json::Builder{}
+            .StartDict()
+                .Key("request_id"s).Value(stop_request.at("id"s).AsInt())
+                .Key("error_message"s).Value("not found"s)
+            .EndDict()
+            .Build();
     }
 
     auto stop_stats = transport_catalogue.GetStopInfo(stop);
@@ -79,20 +83,26 @@ json::Dict GetStopInfo(const TransportCatalogue& transport_catalogue, const json
     for(std::string_view bus : stop_stats) {
         buses.push_back(std::string(bus));
     }
-    stop_info.insert({"buses"s, buses});
 
-    return stop_info;
+    return json::Builder{}
+        .StartDict()
+            .Key("request_id"s).Value(stop_request.at("id"s).AsInt())
+            .Key("buses"s).Value(buses)
+        .EndDict()
+        .Build();
 }
 
 //Возвращает словарь, заполненный информацией, необходимой для отрисовки маршрутов
-json::Dict GetRoutesMap(const RequestHandler& request_handler, const json::Dict& map_request) {
-    using namespace std::literals;
-
+json::Node GetRoutesMap(const RequestHandler& request_handler, const json::Dict& map_request) {
     std::ostringstream out_str;
     request_handler.RenderMap().Render(out_str);
 
-    return json::Dict{{"request_id"s, map_request.at("id"s).AsInt()},
-                      {"map"s, out_str.str()}};
+    return json::Builder{}
+        .StartDict()
+            .Key("request_id"s).Value(map_request.at("id"s).AsInt())
+            .Key("map"s).Value(out_str.str())
+        .EndDict()
+        .Build();
 }
 }  // namespace
 
@@ -151,11 +161,11 @@ void JsonReader::FillTransportCatalogue(TransportCatalogue& catalogue) const {
 
 // выводит в output результаты запросов "stat_requests"
 void JsonReader::ApplyStatRequests(const RequestHandler& request_handler, std::ostream& output) const {
-    json::Array root;
+    json::Builder json_builder{};
 
     if(dict_.contains("stat_requests"s)) {
         const auto& array = dict_.at("stat_requests"s).AsArray();
-
+        json_builder.StartArray();
         for(const auto& item : array) {
             const auto& request_info = item.AsMap();
 
@@ -164,21 +174,21 @@ void JsonReader::ApplyStatRequests(const RequestHandler& request_handler, std::o
             }
 
             if(request_info.at("type"s).AsString() == "Bus"s) {
-                root.push_back(GetBusInfo(request_handler.GetTransportCatalogue(), request_info));
+                json_builder.Value(GetBusInfo(request_handler.GetTransportCatalogue(), request_info).GetValue());
                 continue;
             }
 
             if(request_info.at("type"s).AsString() == "Stop"s) {
-                root.push_back(GetStopInfo(request_handler.GetTransportCatalogue(), request_info));
+                json_builder.Value(GetStopInfo(request_handler.GetTransportCatalogue(), request_info).GetValue());
                 continue;
             }
 
             if(request_info.at("type"s).AsString() == "Map"s) {
-                root.push_back(GetRoutesMap(request_handler, request_info));
+                json_builder.Value(GetRoutesMap(request_handler, request_info).GetValue());
             }
         }
     }
-    json::Print(json::Document{root}, output);
+    json::Print(json::Document{json_builder.EndArray().Build()}, output);
 }
 
 // возвращает настройки для отрисовки маршрутов

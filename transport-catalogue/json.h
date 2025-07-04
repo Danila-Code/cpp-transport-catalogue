@@ -23,9 +23,12 @@ public:
 class Node final 
     : private std::variant<std::nullptr_t, int, double, bool, std::string, Array, Dict> {
 public:
-    using Value = std::variant<std::nullptr_t, int, double, bool, std::string, Array, Dict>;
-
     using variant::variant;
+    using variant::operator=;
+    using Value = variant;
+
+    Node(Value&& value) : Value(std::move(value)) {
+    }
 
     // Методы сообщают, хранится ли внутри значение некоторого типа:
     bool IsNull() const {
@@ -100,6 +103,10 @@ public:
     }
 
     const Value& GetValue() const {
+        return *this;
+    }
+
+    Value& GetValue() {
         return *this;
     }
 };
