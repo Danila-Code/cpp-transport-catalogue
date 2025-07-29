@@ -71,12 +71,24 @@ graph::DirectedWeightedGraph<TravelTime> TransportRouter::BuildGraph(const catal
     return graph;
 }
 
-std::optional<Router<TravelTime>::RouteInfo> TransportRouter::BuildRoute(const domain::Stop* from, const domain::Stop* to) const {
-    return router_.BuildRoute(vertexes_ids_.at(from), vertexes_ids_.at(to));
-}
+std::optional<ResultRoute> TransportRouter::BuildRoute(const domain::Stop* from, const domain::Stop* to) const {
+    const auto route = router_.BuildRoute(vertexes_ids_.at(from), vertexes_ids_.at(to));
+    if(!route) {
+        return std::nullopt;
+    }
+    ResultRoute result_route;
+    result_route.total_time = route->weight;
+    result_route.route_parts.reserve(route->edges.size());
 
-const DirectedWeightedGraph<TravelTime>& TransportRouter::GetGraph() const {
-    return graph_;
+    for(EdgeId edge_id : route->edges) {
+        const auto& edge = graph_.GetEdge(edge_id);
+        if(!edge.span_count) {
+            result_route.route_parts.push_back(WaitingPart{edge.route_id, edge.weight});
+        } else {
+            result_route.route_parts.push_back(TransitPart{edge.route_id, edge.weight, edge.span_count});
+        }
+    }
+    return result_route;
 }
 
 }  // namespace router

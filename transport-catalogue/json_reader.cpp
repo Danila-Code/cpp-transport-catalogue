@@ -106,6 +106,25 @@ Node GetRoutesMap(const RequestHandler& request_handler, const Dict& map_request
         .Build();
 }
 
+// получение информации о части маршрута
+// ожидание автобуса на остановках
+void GetRoutePart(const router::WaitingPart& part, Builder& builder) {
+    builder.StartDict()
+               .Key("type"s).Value(part.type)
+               .Key("stop_name"s).Value(std::string(part.stop_name))
+               .Key("time"s).Value(part.travel_time)
+           .EndDict();   
+}
+// проезд на автобусе
+void GetRoutePart(const router::TransitPart& part, Builder& builder) {
+    builder.StartDict()
+               .Key("type"s).Value(part.type)
+               .Key("bus"s).Value(std::string(part.bus_name))
+               .Key("span_count"s).Value(part.span_count)
+               .Key("time"s).Value(part.travel_time)
+           .EndDict();
+}
+
 // Возвращает словарь, заполненный информацией, об оптимальном маршруте между двумя остановками
 Node GetRouteInfo(const RequestHandler& request_handler, const Dict& route_request) {
     Builder builder{};
@@ -117,31 +136,13 @@ Node GetRouteInfo(const RequestHandler& request_handler, const Dict& route_reque
         return builder.Key("error_message"s).Value("not found"s)
             .EndDict().Build();
     }
-    const auto& graph = request_handler.GetGraph();
-
     builder.Key("items"s).StartArray();
     // выводим этапы маршрута
-    for(const auto& edge_id : route->edges) {
-        const auto& edge = graph.GetEdge(edge_id);
-        // ожидание автобуса на остановках
-        if(!edge.span_count) {
-            builder.StartDict()
-                       .Key("type"s).Value("Wait"s)
-                       .Key("stop_name"s).Value(std::string(edge.route_id))
-                       .Key("time"s).Value(edge.weight)
-                   .EndDict();
-        // проезд на автобусе
-        } else {    
-            builder.StartDict()
-                       .Key("type"s).Value("Bus"s)
-                       .Key("bus"s).Value(std::string(edge.route_id))
-                       .Key("span_count"s).Value(edge.span_count)
-                       .Key("time"s).Value(edge.weight)
-                   .EndDict();
-        }
+    for(const auto& route_part : route->route_parts) {
+        std::visit([&builder](const auto& part) { GetRoutePart(part, builder);}, route_part);
     }
     return builder.EndArray()
-                .Key("total_time"s).Value(route->weight)
+                .Key("total_time"s).Value(route->total_time)
             .EndDict()
             .Build();
 }

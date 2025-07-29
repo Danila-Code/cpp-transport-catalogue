@@ -1,5 +1,7 @@
 #pragma once
 
+#include <variant>
+
 #include "graph.h"
 #include "router.h"
 #include "transport_catalogue.h"
@@ -7,6 +9,31 @@
 namespace router {
 
 using TravelTime = double;
+using namespace std::literals;
+
+struct WaitingPart {
+    WaitingPart(std::string_view name, TravelTime time) : stop_name{name}, travel_time{time} {
+    }
+    const std::string type = "Wait"s;
+    std::string_view stop_name;
+    TravelTime travel_time;
+};
+
+struct TransitPart {
+    TransitPart(std::string_view name, TravelTime time, int count) : bus_name{name}, travel_time{time}, span_count{count} {
+    }
+    const std::string type = "Bus"s;
+    std::string_view bus_name;
+    TravelTime travel_time;
+    int span_count = 0;
+};
+
+using RoutePart = std::variant<WaitingPart, TransitPart>;
+
+struct ResultRoute {
+    TravelTime total_time;
+    std::vector<RoutePart> route_parts;
+};
 
 struct RoutingSettings {
     double bus_velocity;
@@ -17,9 +44,7 @@ class TransportRouter {
 public:
     explicit TransportRouter(RoutingSettings routing_settings, const catalogue::TransportCatalogue& catalogue);
     // построить маршрут
-    std::optional<graph::Router<TravelTime>::RouteInfo> BuildRoute(const domain::Stop* from, const domain::Stop* to) const;
-
-    const graph::DirectedWeightedGraph<TravelTime>& GetGraph() const;
+    std::optional<ResultRoute> BuildRoute(const domain::Stop* from, const domain::Stop* to) const;
 
 private:
     graph::DirectedWeightedGraph<TravelTime> BuildGraph(const catalogue::TransportCatalogue& catalogue);

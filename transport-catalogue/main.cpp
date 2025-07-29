@@ -20,6 +20,6 @@ int main() {
     TransportRouter router(reader.GetRoutingSettings(), catalogue);
 
     RequestHandler handler(catalogue, renderer, router);
- 
+    
     reader.ApplyStatRequests(handler, cout);
 }

@@ -25,9 +25,7 @@ public:
     const TransportCatalogue& GetTransportCatalogue() const;
 
     // ищет подходящий маршрут
-    std::optional<graph::Router<router::TravelTime>::RouteInfo> GetRoute(std::string_view from, std::string_view to) const;
-
-    const graph::DirectedWeightedGraph<router::TravelTime>& GetGraph() const;
+    std::optional<router::ResultRoute> GetRoute(std::string_view from, std::string_view to) const;
 
 private:
     // возвращает указатели на координаты всех уникальных остановок

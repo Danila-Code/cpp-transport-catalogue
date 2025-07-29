@@ -47,10 +47,6 @@ const std::unordered_set<const geo::Coordinates*> RequestHandler::GetStopsCoord(
 }
 
 // ищет подходящий маршрут
-std::optional<graph::Router<router::TravelTime>::RouteInfo> RequestHandler::GetRoute(std::string_view from, std::string_view to) const {
+std::optional<router::ResultRoute> RequestHandler::GetRoute(std::string_view from, std::string_view to) const {
     return router_.BuildRoute(db_.GetStop(from), db_.GetStop(to));
-}
-
-const graph::DirectedWeightedGraph<router::TravelTime>& RequestHandler::GetGraph() const {
-    return router_.GetGraph();
 }
