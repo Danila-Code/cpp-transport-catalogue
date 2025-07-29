@@ -1,7 +1,5 @@
 #include <iostream>
 
-#include <fstream>
-
 #include "json_reader.h"
 #include "request_handler.h"
 
@@ -12,18 +10,16 @@ using namespace router;
 
 int main() {
     using namespace std::literals;
-    std::ifstream in("final_input_2.json"s);
 
     TransportCatalogue catalogue;
     
-    json_reader::JsonReader reader(in);
+    json_reader::JsonReader reader(cin);
     reader.FillTransportCatalogue(catalogue);
 
     MapRenderer renderer(reader.GetRenderSettings());
     TransportRouter router(reader.GetRoutingSettings(), catalogue);
 
     RequestHandler handler(catalogue, renderer, router);
-    
-    std::ofstream out("final_output_2.json");
-    reader.ApplyStatRequests(handler, out);
+ 
+    reader.ApplyStatRequests(handler, cout);
 }
