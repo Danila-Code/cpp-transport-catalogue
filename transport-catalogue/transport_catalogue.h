@@ -36,6 +36,12 @@ public:
     
     // получение всех маршрутов
     const std::unordered_map<std::string_view, const Bus*>& GetAllRoutes() const;
+    
+    // получение всех остановок
+    const std::unordered_map<std::string_view, const Stop*> GetAllStops() const;
+
+    // получение расстояния между двумя остановками
+    size_t GetDistanceBetweenStops(const Stop* from, const Stop* to) const;
 
 private:
     // расчитывает и возвращает статистику маршрута

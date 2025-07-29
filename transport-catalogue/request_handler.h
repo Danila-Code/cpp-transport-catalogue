@@ -2,6 +2,7 @@
 
 #include "transport_catalogue.h"
 #include "map_renderer.h"
+#include "transport_router.h"
 
 #include <vector>
 #include <unordered_set>
@@ -11,12 +12,22 @@ using namespace catalogue;
 class RequestHandler {
 public:
     RequestHandler(const catalogue::TransportCatalogue& db, 
-        const renderer::MapRenderer& renderer);
-    
+                   const renderer::MapRenderer& renderer,
+                   const router::TransportRouter& router) :
+                                                            db_{db}, 
+                                                            renderer_{renderer}, 
+                                                            router_{router} {
+    }
+
     // возвращает svg::Document с картой маршрутов
     svg::Document RenderMap() const;
 
     const TransportCatalogue& GetTransportCatalogue() const;
+
+    // ищет подходящий маршрут
+    std::optional<graph::Router<router::TravelTime>::RouteInfo> GetRoute(std::string_view from, std::string_view to) const;
+
+    const graph::DirectedWeightedGraph<router::TravelTime>& GetGraph() const;
 
 private:
     // возвращает указатели на координаты всех уникальных остановок
@@ -29,4 +40,5 @@ private:
 
     const catalogue::TransportCatalogue& db_;
     const renderer::MapRenderer& renderer_;
+    const router::TransportRouter& router_;
 };

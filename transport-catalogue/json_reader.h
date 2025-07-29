@@ -19,7 +19,17 @@ public:
     // возвращает настройки для отрисовки маршрутов
     renderer::detail::RenderSettings GetRenderSettings() const;
 
+    // возвращает настройки для построения маршрутов
+    router::RoutingSettings GetRoutingSettings() const;
+
 private:
+    // Заполняем каталог остановками с координатами
+    void FillStops(TransportCatalogue& catalogue, const json::Array& array) const;
+    // Заполняем каталог расстояниями между остановок
+    void FillDistancesBetweenStops(TransportCatalogue& catalogue, const json::Array& array) const;
+    // Заполняем каталог автобусными маршрутами
+    void FillBusRoutes(TransportCatalogue& catalogue, const json::Array& array) const;
+
     json::Dict dict_;
 };
 

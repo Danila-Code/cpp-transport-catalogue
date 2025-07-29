@@ -5,22 +5,23 @@
 #include <sstream>
 
 using namespace std::literals;
+using namespace json;
+using namespace svg;
 
 namespace catalogue {
 namespace json_reader {
 
 namespace {
-
 // Преобразует json::Node в svg::Color
-svg::Color NodeToColor(const json::Node& node) {
+Color NodeToColor(const json::Node& node) {
     if(node.IsArray()) {
         auto& array = node.AsArray();
         if(array.size() == 3) {
-            return svg::Color{svg::Rgb{static_cast<uint8_t>(array[0].AsInt()), 
+            return Color{Rgb{static_cast<uint8_t>(array[0].AsInt()), 
                                        static_cast<uint8_t>(array[1].AsInt()), 
                                        static_cast<uint8_t>(array[2].AsInt())}};
         }
-        return svg::Color{svg::Rgba{static_cast<uint8_t>(array[0].AsInt()), 
+        return Color{Rgba{static_cast<uint8_t>(array[0].AsInt()), 
                                     static_cast<uint8_t>(array[1].AsInt()), 
                                     static_cast<uint8_t>(array[2].AsInt()), 
                                     array[3].AsDouble()}};
@@ -29,16 +30,16 @@ svg::Color NodeToColor(const json::Node& node) {
 }    
 
 // Преобразует вектор json::Node'ов в вектор svg::Color'ов
-std::vector<svg::Color> ArrayToColorVector(const json::Array& array) {
-    std::vector<svg::Color> colors;
+std::vector<Color> ArrayToColorVector(const Array& array) {
+    std::vector<Color> colors;
     for(const auto& node : array) {
         colors.push_back(std::move(NodeToColor(node)));
     }
     return colors;
 }
 
-//Возвращает словарь, заполненный информацией о маршруте
-json::Node GetBusInfo(const TransportCatalogue& transport_catalogue, const json::Dict& bus_request) {
+// Возвращает словарь, заполненный информацией о маршруте
+Node GetBusInfo(const TransportCatalogue& transport_catalogue, const Dict& bus_request) {
     auto bus = transport_catalogue.GetBus(bus_request.at("name"s).AsString());
 
     if(!bus) {
@@ -64,12 +65,12 @@ json::Node GetBusInfo(const TransportCatalogue& transport_catalogue, const json:
         // Возможно переполнение при преобразовании из size_t в int
 }
 
-//Возвращает словарь, заполненный информацией об остановке
-json::Node GetStopInfo(const TransportCatalogue& transport_catalogue, const json::Dict& stop_request) {
+// Возвращает словарь, заполненный информацией об остановке
+Node GetStopInfo(const TransportCatalogue& transport_catalogue, const Dict& stop_request) {
     auto stop = transport_catalogue.GetStop(stop_request.at("name"s).AsString());
 
     if(!stop) {
-        return json::Builder{}
+        return Builder{}
             .StartDict()
                 .Key("request_id"s).Value(stop_request.at("id"s).AsInt())
                 .Key("error_message"s).Value("not found"s)
@@ -79,12 +80,12 @@ json::Node GetStopInfo(const TransportCatalogue& transport_catalogue, const json
 
     auto stop_stats = transport_catalogue.GetStopInfo(stop);
 
-    json::Array buses{};
+    Array buses{};
     for(std::string_view bus : stop_stats) {
         buses.push_back(std::string(bus));
     }
 
-    return json::Builder{}
+    return Builder{}
         .StartDict()
             .Key("request_id"s).Value(stop_request.at("id"s).AsInt())
             .Key("buses"s).Value(buses)
@@ -92,17 +93,57 @@ json::Node GetStopInfo(const TransportCatalogue& transport_catalogue, const json
         .Build();
 }
 
-//Возвращает словарь, заполненный информацией, необходимой для отрисовки маршрутов
-json::Node GetRoutesMap(const RequestHandler& request_handler, const json::Dict& map_request) {
+// Возвращает словарь, заполненный информацией, необходимой для отрисовки маршрутов
+Node GetRoutesMap(const RequestHandler& request_handler, const Dict& map_request) {
     std::ostringstream out_str;
     request_handler.RenderMap().Render(out_str);
 
-    return json::Builder{}
+    return Builder{}
         .StartDict()
             .Key("request_id"s).Value(map_request.at("id"s).AsInt())
             .Key("map"s).Value(out_str.str())
         .EndDict()
         .Build();
+}
+
+// Возвращает словарь, заполненный информацией, об оптимальном маршруте между двумя остановками
+Node GetRouteInfo(const RequestHandler& request_handler, const Dict& route_request) {
+    Builder builder{};
+    builder.StartDict()
+               .Key("request_id"s).Value(route_request.at("id"s).AsInt());
+    // пытаемтся построить оптимальный маршрут
+    auto route = request_handler.GetRoute(route_request.at("from"s).AsString(), route_request.at("to"s).AsString());
+    if(!route) {
+        return builder.Key("error_message"s).Value("not found"s)
+            .EndDict().Build();
+    }
+    const auto& graph = request_handler.GetGraph();
+
+    builder.Key("items"s).StartArray();
+    // выводим этапы маршрута
+    for(const auto& edge_id : route->edges) {
+        const auto& edge = graph.GetEdge(edge_id);
+        // ожидание автобуса на остановках
+        if(!edge.span_count) {
+            builder.StartDict()
+                       .Key("type"s).Value("Wait"s)
+                       .Key("stop_name"s).Value(std::string(edge.route_id))
+                       .Key("time"s).Value(edge.weight)
+                   .EndDict();
+        // проезд на автобусе
+        } else {    
+            builder.StartDict()
+                       .Key("type"s).Value("Bus"s)
+                       .Key("bus"s).Value(std::string(edge.route_id))
+                       .Key("span_count"s).Value(edge.span_count)
+                       .Key("time"s).Value(edge.weight)
+                   .EndDict();
+        }
+    }
+    return builder.EndArray()
+                .Key("total_time"s).Value(route->weight)
+            .EndDict()
+            .Build();
 }
 }  // namespace
 
@@ -110,85 +151,92 @@ JsonReader::JsonReader(std::istream& input) {
     dict_ = json::Load(input).GetRoot().AsMap();
 }
 
-// заполняет каталог данными
+// Заполняем каталог остановками с координатами
+void JsonReader::FillStops(TransportCatalogue& catalogue, const Array& array) const {
+    for(const auto& item : array) {
+        const auto& item_info = item.AsMap();
+        if(item_info.at("type"s).AsString() == "Stop"s) {
+            catalogue.AddStop({item_info.at("name"s).AsString(), 
+                {item_info.at("latitude"s).AsDouble(), item_info.at("longitude"s).AsDouble()}});
+        }
+    }
+}
+
+// Заполняем каталог расстояниями между остановок
+void JsonReader::FillDistancesBetweenStops(TransportCatalogue& catalogue, const Array& array) const {
+    for(const auto& item : array) {
+        const auto& item_info = item.AsMap();
+        if(item_info.at("type"s).AsString() == "Stop"s) {
+            for(const auto& [to, distance] : item_info.at("road_distances"s).AsMap()) {
+                catalogue.AddDistanceBetweenStops(item_info.at("name"s).AsString(), 
+                    to, distance.AsInt());
+            }
+        }
+    }
+}
+
+// Заполняем каталог автобусными маршрутами
+void JsonReader::FillBusRoutes(TransportCatalogue& catalogue, const Array& array) const {
+    for(const auto& item : array) {
+        const auto& item_info = item.AsMap();
+        if(item_info.at("type"s).AsString() == "Bus"s) {
+            Bus bus{item_info.at("name"s).AsString(), {}, item_info.at("is_roundtrip"s).AsBool()};
+                
+            const auto& stops = item_info.at("stops"s).AsArray();
+            bus.stops.reserve(bus.is_roundtrip ? stops.size() : stops.size() * 2 - 1);
+
+            for(const auto& stop : stops) {
+                bus.stops.push_back(catalogue.GetStop(stop.AsString()));
+            }
+            // Разворачиваем некольцевой маршрут
+            if(bus.is_roundtrip == false) {
+                std::copy(bus.stops.rbegin() + 1, bus.stops.rend(), std::back_inserter(bus.stops));
+            }
+            catalogue.AddBus(bus);
+        }
+    }
+}
+
+// заполняет весь каталог данными
 void JsonReader::FillTransportCatalogue(TransportCatalogue& catalogue) const {
     if(dict_.contains("base_requests"s)) {
         const auto& array = dict_.at("base_requests"s).AsArray();
-        // Заполняем каталог остановками с координатами
-        for(const auto& item : array) {
-            const auto& item_info = item.AsMap();
-
-            if(item_info.at("type"s).AsString() == "Stop"s) {
-                catalogue.AddStop({item_info.at("name"s).AsString(), 
-                    {item_info.at("latitude"s).AsDouble(), item_info.at("longitude"s).AsDouble()}});
-            }
-        }
-        // Заполняем каталог расстояниями между остановок
-        for(const auto& item : array) {
-            const auto& item_info = item.AsMap();
-
-            if(item_info.at("type"s).AsString() == "Stop"s) {
-                for(const auto& [to, distance] : item_info.at("road_distances"s).AsMap()) {
-                    catalogue.AddDistanceBetweenStops(item_info.at("name"s).AsString(), 
-                        to, distance.AsInt());
-                }
-            }
-        }
-        // Заполняем каталог автобусными маршрутами
-        for(const auto& item : array) {
-            const auto& item_info = item.AsMap();
-
-            if(item_info.at("type"s).AsString() == "Bus"s) {
-                Bus bus{item_info.at("name"s).AsString(), {}, item_info.at("is_roundtrip"s).AsBool()};
-                
-                const auto& stops = item_info.at("stops"s).AsArray();
-                bus.stops.reserve(bus.is_roundtrip ? stops.size() : stops.size() * 2 - 1);
-
-                for(const auto& stop : stops) {
-                    bus.stops.push_back(catalogue.GetStop(stop.AsString()));
-                }
-
-                // Разворачиваем некольцевой маршрут
-                if(bus.is_roundtrip == false) {
-                    std::copy(bus.stops.rbegin() + 1, bus.stops.rend(), std::back_inserter(bus.stops));
-                }
-                catalogue.AddBus(bus);
-            }
-        }
-
+        FillStops(catalogue, array);  // Заполняем каталог остановками с координатами
+        FillDistancesBetweenStops(catalogue, array);  // Заполняем каталог расстояниями между остановок
+        FillBusRoutes(catalogue, array);// Заполняем каталог автобусными маршрутами
     }
 }
 
 // выводит в output результаты запросов "stat_requests"
 void JsonReader::ApplyStatRequests(const RequestHandler& request_handler, std::ostream& output) const {
-    json::Builder json_builder{};
+    Builder json_builder{};
 
     if(dict_.contains("stat_requests"s)) {
         const auto& array = dict_.at("stat_requests"s).AsArray();
         json_builder.StartArray();
         for(const auto& item : array) {
             const auto& request_info = item.AsMap();
-
             if(request_info.at("type"s).AsString().empty()) {
                 continue;
             }
-
             if(request_info.at("type"s).AsString() == "Bus"s) {
                 json_builder.Value(GetBusInfo(request_handler.GetTransportCatalogue(), request_info).GetValue());
                 continue;
             }
-
             if(request_info.at("type"s).AsString() == "Stop"s) {
                 json_builder.Value(GetStopInfo(request_handler.GetTransportCatalogue(), request_info).GetValue());
                 continue;
             }
-
             if(request_info.at("type"s).AsString() == "Map"s) {
                 json_builder.Value(GetRoutesMap(request_handler, request_info).GetValue());
+                continue;
+            }
+            if(request_info.at("type"s).AsString() == "Route"s) {
+                json_builder.Value(GetRouteInfo(request_handler, request_info).GetValue());
             }
         }
     }
-    json::Print(json::Document{json_builder.EndArray().Build()}, output);
+    Print(json::Document{json_builder.EndArray().Build()}, output);
 }
 
 // возвращает настройки для отрисовки маршрутов
@@ -211,5 +259,16 @@ renderer::detail::RenderSettings JsonReader::GetRenderSettings() const {
             .color_palette = ArrayToColorVector(render_settings.at("color_palette"s).AsArray())};
 }
 
+// возвращает настройки для построения маршрутов
+router::RoutingSettings JsonReader::GetRoutingSettings() const {
+    const auto& routing_settings = dict_.at("routing_settings"s).AsMap();
+
+    constexpr double SpeedToMInMinuteKoef = 100 / 6.0; // коэффициент для перевода скорости из км/ч в м/мин
+    auto convert_speed = [SpeedToMInMinuteKoef](int km_per_hour) {
+        return km_per_hour * SpeedToMInMinuteKoef;
+    };
+    return {.bus_velocity = convert_speed(routing_settings.at("bus_velocity"s).AsInt()),
+            .bus_waiting_time = routing_settings.at("bus_wait_time"s).AsInt()};
+}
 }// namespace json_reader
 }// namespace catalogue

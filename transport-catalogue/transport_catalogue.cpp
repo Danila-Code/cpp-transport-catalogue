@@ -104,4 +104,18 @@ const std::unordered_map<std::string_view, const Bus*>& TransportCatalogue::GetA
     return find_buses_;
 }
 
+// получение всех остановок
+const std::unordered_map<std::string_view, const Stop*> TransportCatalogue::GetAllStops() const {
+    return find_stops_;
+}
+
+// получение расстояния между двумя остановками
+size_t TransportCatalogue::GetDistanceBetweenStops(const Stop* from, const Stop* to) const {
+    auto iter = stops_distances_.find({from, to});
+    if(iter != stops_distances_.end()) {
+        return iter->second;
+    }
+    return stops_distances_.at(std::pair(to, from));
+}
+
 }// namespace catalogue
