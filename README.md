@@ -251,6 +251,7 @@
 `map` - строка с изображением в формате SVG;\
 `request_id` - уникальный идентификатор запроса, соответствует id запроса "Map" в stat_requests входного файла.\
 Пример карты маршрутов в формате SVG:
+
 ![](https://github.com/Danila-Code/cpp-transport-catalogue/blob/main/routes_map.png)
 ---
 ### Ответ на запрос кратчайшего маршрута между двумя остановками
